@@ -47,6 +47,7 @@ public sealed class ItemUpdaterFactory
             [ItemCategory.AgedBrie] = new AgedBrieUpdater(),
             [ItemCategory.BackstagePass] = new BackstagePassUpdater(),
             [ItemCategory.Legendary] = new LegendaryItemUpdater(),
+            [ItemCategory.Conjured] = new ConjuredItemUpdater()
         };
 
         var unregistered = Enum.GetValues<ItemCategory>()

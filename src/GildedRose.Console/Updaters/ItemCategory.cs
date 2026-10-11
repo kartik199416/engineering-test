@@ -37,5 +37,8 @@ public enum ItemCategory
     BackstagePass,
 
     /// <summary>Never has to be sold and never degrades.</summary>
-    Legendary
+    Legendary,
+
+    /// <summary>Degrades at twice the rate of ordinary stock.</summary>
+    Conjured
 }
