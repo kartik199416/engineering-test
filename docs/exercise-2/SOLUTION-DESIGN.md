@@ -173,3 +173,54 @@ Recorded because the brief is ambiguous in these places, and in a real team each
 4. **The 50 cap does not apply to Sulfuras,** which is why it is clamped in the base class only along paths the legendary updater never takes.
 5. **Existing item names are stable strings.** With `Item` off-limits there is no type to match on, so names are the only discriminator available.
 6. **One `UpdateQuality()` call is one day.** Never stated, but it is the only reading consistent with "at the end of each day".
+
+## 9. Changes made during implementation
+
+Recorded honestly rather than quietly folded back into the design above.
+
+**Name matching was generalised from exact equality to prefixes.** The legacy
+code compared names with case-sensitive equality. The factory matches
+`"Sulfuras"`, `"Backstage passes"` and `"Conjured"` as case-insensitive ordinal
+prefixes, and only `"Aged Brie"` by equality. Behaviour is identical for every
+name in the sample data; it differs for names that do not appear there, which is
+the point — a supplier sends a product line, not a single SKU. The negative
+cases (`"Unconjured Mana Cake"`, `"Mana Cake, Conjured"`) are tested so the rule
+is pinned rather than implied.
+
+**Out-of-range data is now clamped back into range.** This is the one genuine
+behaviour change and it deserves to be read twice. The legacy guard was "only
+increment if below 50", which is not the same as the invariant "never above 50":
+brie that arrived at 60 stayed at 60 forever. `AdjustQuality` clamps, so such an
+item is pulled back to 50 on the next update. Nothing in the sample data or the
+brief produces one, so no characterisation test covers it — which is exactly why
+it is written down here and asserted in `QualityBoundaryTests`.
+
+**Clamping sits inside `AdjustQuality`, not at the end of `Update`.** The
+end-of-update version is tidier and wrong: it drags Sulfuras from 80 to 50.
+`LegendaryItemUpdater` consequently does not use the rate mechanism at all — it
+overrides the daily change to an empty body and reports `AdjustsSellIn => false`,
+so it never reaches a clamp by any path.
+
+**`Update` is non-virtual.** The three-phase sequence is the invariant the whole
+design rests on; subclasses vary the steps, never the order. Making it virtual
+would let a future category quietly reorder them.
+
+**Dispatch order is Conjured → Legendary → Aged Brie → Backstage → Standard.**
+Conjured is tested first so `"Conjured Aged Brie"` degrades rather than improves.
+Conjuring is something done *to* a product, so it wins over what the product
+otherwise is. That is a judgement call, which is why it is a position in a rule
+table a reviewer can disagree with by moving one line, rather than a branch
+buried in a method — and why `ItemCategoryClassifierTests` asserts the order
+itself, not just one name that happens to depend on it.
+
+**Final counts.** 115 tests: 38 characterisation (unedited through the refactor),
+23 Conjured, 13 quality boundary, 21 dispatch, 20 classification.
+`dotnet test -c Release` green, zero warnings.
+
+## 10. What I would do next
+
+Not in scope here, but it is what I would raise in the PR:
+
+- Name matching is the remaining fragile point, and it is now confined to one type. Given the freedom to touch `Item`, the right answer is a category discriminator on the item itself; `ItemCategoryClassifier` would then shrink to a cast and nothing downstream of it would change. The string matching is a direct consequence of the constraint, not of the design.
+- `Program` conflates the console entry point with the inventory domain. Splitting the updater code into its own project would stop the domain depending on a console app, but that restructures the solution file beyond what this exercise calls for.
+- If the rule table grows past roughly ten entries, the predicates should come from configuration rather than from a static array, so that adding a product line stops being a code change. The shape already allows it; I have not done it because five entries do not justify the indirection.
